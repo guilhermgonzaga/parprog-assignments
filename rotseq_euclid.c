@@ -29,6 +29,8 @@ typedef struct no	// Nó da fila de células a serem tratadas e do caminho encon
 // ----------------------------------------------------------------------------
 // Variáveis globais
 
+bool expansao_invertida = false;
+
 int n_linhas, n_colunas;	// No. de linhas e colunas do grid
 int distancia_min;	// Distância do caminho mínimo de origem a destino
 int **dist;			// Matriz com distância da origem até cada célula do grid
@@ -36,10 +38,31 @@ int **dist;			// Matriz com distância da origem até cada célula do grid
 t_celula origem, destino;
 
 t_no *ini_fila, *fim_fila;	// Início e fim da fila de células a serem tratadas
-t_no *ini_caminho;	// Início do caminho encontrado
+t_no *ini_caminho, *fim_caminho;	// Início e fim do caminho encontrado
 
 // ----------------------------------------------------------------------------
 // Funções
+
+int dist_euclid2(t_celula a, t_celula b)
+{
+	return (a.i - b.i) * (a.i - b.i)
+	     + (a.j - b.j) * (a.j - b.j);
+}
+
+void escolhe_direcao()
+{
+	t_celula centro = {n_linhas/2, n_colunas/2};
+	int dist_origem = dist_euclid2(origem, centro);
+	int dist_destino = dist_euclid2(destino, centro);
+
+	if (dist_destino > dist_origem)
+	{
+		t_celula temp = origem;
+		origem = destino;
+		destino = temp;
+		expansao_invertida = true;
+	}
+}
 
 void inicializa(const char *nome_arq_entrada)
 {
@@ -62,6 +85,8 @@ void inicializa(const char *nome_arq_entrada)
 	fscanf(arq_entrada, "%d %d", &origem.i, &origem.j);
 	fscanf(arq_entrada, "%d %d", &destino.i, &destino.j);
 	fscanf(arq_entrada, "%d", &n_obstaculos);
+
+	escolhe_direcao();
 
 	// Aloca grid
 	dist = malloc(n_linhas * sizeof (int*));
@@ -95,6 +120,7 @@ void inicializa(const char *nome_arq_entrada)
 
 	// Inicializa caminho vazio
 	ini_caminho = NULL;
+	fim_caminho = NULL;
 }
 
 // ----------------------------------------------------------------------------
@@ -175,7 +201,7 @@ t_celula remove_fila()
 // ----------------------------------------------------------------------------
 // Insere célula no início do caminho
 
-void insere_caminho(t_celula celula)
+void insere_ini_caminho(t_celula celula)
 {
 	t_no *no = malloc(sizeof(t_no));
 	// Checar se conseguiu alocar
@@ -185,6 +211,26 @@ void insere_caminho(t_celula celula)
 	no->prox = ini_caminho;
 
 	ini_caminho = no;
+}
+
+// ----------------------------------------------------------------------------
+// Insere célula no fim do caminho
+
+void insere_fim_caminho(t_celula celula)
+{
+	t_no *no = malloc(sizeof(t_no));
+	// Checar se conseguiu alocar
+
+	no->i = celula.i;
+	no->j = celula.j;
+	no->prox = NULL;
+
+	if (ini_caminho == NULL)
+		ini_caminho = no;
+	else
+		fim_caminho->prox = no;
+
+	fim_caminho = no;
 }
 
 // ----------------------------------------------------------------------------
@@ -258,6 +304,9 @@ bool expansao()
 void traceback()
 {
 	t_celula celula, vizinho;
+
+	void (*insere_caminho)(t_celula) =
+		expansao_invertida ? insere_fim_caminho : insere_ini_caminho;
 
 	// Constrói caminho mínimo, com células do destino até a origem
 

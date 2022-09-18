@@ -1,8 +1,10 @@
-rotseq
-rotpar
 Descricao.pdf
 out.txt
 in.txt
+rotseq
+rotseq_eclid
+rotseq_aker
+rotpar
 a.out
 *.o
 *.exe

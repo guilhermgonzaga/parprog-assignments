@@ -322,7 +322,7 @@ int traceback()
 // ----------------------------------------------------------------------------
 // Programa principal
 
-int main(int argc, const char **argv)
+int main(int argc, const char *argv[])
 {
 	const char *nome_arq_entrada = argv[1], *nome_arq_saida = argv[2];
 	bool achou;
@@ -331,7 +331,7 @@ int main(int argc, const char **argv)
 	{
 		printf("O programa foi executado com argumentos incorretos.\n");
 		printf("Uso: ./rot_seq <nome arquivo entrada> <nome arquivo saída>\n");
-		exit(1);
+		return 1;
 	}
 
 	// Lê arquivo de entrada e inicializa estruturas de dados

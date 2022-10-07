@@ -29,7 +29,7 @@ typedef struct no	// Nó da fila de células a serem tratadas e do caminho encon
 // ----------------------------------------------------------------------------
 // Variáveis globais
 
-bool expansao_invertida = false;
+bool expansao_invertida = false;	// Flag para ativar expansão mais excêntrica
 
 int n_linhas, n_colunas;	// No. de linhas e colunas do grid
 int distancia_min;	// Distância do caminho mínimo de origem a destino
@@ -43,12 +43,14 @@ t_no *ini_caminho, *fim_caminho;	// Início e fim do caminho encontrado
 // ----------------------------------------------------------------------------
 // Funções
 
+// Distância euclidiana ao quadrado
 int dist_euclid2(t_celula a, t_celula b)
 {
 	return (a.i - b.i) * (a.i - b.i)
 	     + (a.j - b.j) * (a.j - b.j);
 }
 
+// ----------------------------------------------------------------------------
 // Expansão mais excêntrica: troca origem e destino durante processamento
 // se a distãncia do centro do grid ao destino for maior do que à origem.
 void escolhe_direcao()
@@ -309,6 +311,8 @@ void traceback()
 {
 	t_celula celula, vizinho;
 
+	// Ponteiro para função de queue_t seleciona ordem de inserção no caminho
+	// com base em flag expansao_invertida
 	void (*insere_caminho)(t_celula) =
 		expansao_invertida ? insere_fim_caminho : insere_ini_caminho;
 
@@ -363,7 +367,7 @@ void traceback()
 // ----------------------------------------------------------------------------
 // Programa principal
 
-int main(int argc, const char **argv)
+int main(int argc, const char *argv[])
 {
 	const char *nome_arq_entrada = argv[1], *nome_arq_saida = argv[2];
 
@@ -371,7 +375,7 @@ int main(int argc, const char **argv)
 	{
 		printf("O programa foi executado com argumentos incorretos.\n");
 		printf("Uso: ./rot_seq <nome arquivo entrada> <nome arquivo saída>\n");
-		exit(1);
+		return 1;
 	}
 
 	// Lê arquivo de entrada e inicializa estruturas de dados

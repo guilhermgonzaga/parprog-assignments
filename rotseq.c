@@ -310,16 +310,15 @@ void traceback()
 // ----------------------------------------------------------------------------
 // Programa principal
 
-int main(int argc, const char **argv)
+int main(int argc, const char *argv[])
 {
 	const char *nome_arq_entrada = argv[1], *nome_arq_saida = argv[2];
-	bool achou;
 
 	if(argc != 3)
 	{
 		printf("O programa foi executado com argumentos incorretos.\n");
 		printf("Uso: ./rot_seq <nome arquivo entrada> <nome arquivo saída>\n");
-		exit(1);
+		return 1;
 	}
 
 	// Lê arquivo de entrada e inicializa estruturas de dados
@@ -327,7 +326,7 @@ int main(int argc, const char **argv)
 
 	// Fase de expansão: calcula distância da origem até demais células do grid
 	double tini = omp_get_wtime();
-	achou = expansao();
+	bool achou = expansao();
 	double tfim = omp_get_wtime();
 	printf("%s: %g\n", argv[1], tfim - tini);
 

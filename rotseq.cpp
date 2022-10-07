@@ -43,6 +43,8 @@ int dist_euclid2(t_celula a, t_celula b)
 	     + (a.j - b.j) * (a.j - b.j);
 }
 
+// ----------------------------------------------------------------------------
+
 // Expansão mais excêntrica: troca origem e destino durante processamento
 // se a distãncia do centro do grid ao destino for maior do que à origem.
 void escolhe_direcao()

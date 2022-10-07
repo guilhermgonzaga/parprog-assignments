@@ -1,14 +1,17 @@
 // ----------------------------------------------------------------------------
 // Roteamento usando algoritmo de Lee
 //
-// Para compilar: g++ -Wall -pedantic -std=c++11 -fopenmp -o rotseq rotseq.cpp
+// Para compilar: g++ -pedantic -O2 -std=c++11 -fopenmp -o rotseq rotseq.cpp
 // Para executar: ./rotseq <nome arquivo entrada> <nome arquivo saída>
 // ----------------------------------------------------------------------------
 
-#include <climits>
+#include <cstdint>
 #include <cstdio>
 #include <deque>
 #include <omp.h>
+
+// Valor arbitrário acima de 2
+#define INFINITO 127
 
 // ----------------------------------------------------------------------------
 // Tipos
@@ -23,13 +26,41 @@ typedef std::deque<t_celula> queue_t;
 // ----------------------------------------------------------------------------
 // Variáveis globais
 
+bool expansao_invertida = false;	// Flag para ativar expansão mais excêntrica
+
 int n_linhas, n_colunas;	// No. de linhas e colunas do grid
-int **dist;			// Matriz com distância da origem até cada célula do grid
+int8_t **dist;			// Matriz com distância da origem até cada célula do grid
 
 t_celula origem, destino;
 
 // ----------------------------------------------------------------------------
 // Funções
+
+// Distância euclidiana ao quadrado
+int dist_euclid2(t_celula a, t_celula b)
+{
+	return (a.i - b.i) * (a.i - b.i)
+	     + (a.j - b.j) * (a.j - b.j);
+}
+
+// Expansão mais excêntrica: troca origem e destino durante processamento
+// se a distãncia do centro do grid ao destino for maior do que à origem.
+void escolhe_direcao()
+{
+	t_celula centro = {n_linhas/2, n_colunas/2};
+	int dist_origem = dist_euclid2(origem, centro);
+	int dist_destino = dist_euclid2(destino, centro);
+
+	if (dist_destino > dist_origem)
+	{
+		t_celula temp = origem;
+		origem = destino;
+		destino = temp;
+		expansao_invertida = true;
+	}
+}
+
+// ----------------------------------------------------------------------------
 
 int inicializa(const char *nome_arq_entrada)
 {
@@ -51,16 +82,18 @@ int inicializa(const char *nome_arq_entrada)
 	fscanf(arq_entrada, "%d %d", &destino.i, &destino.j);
 	fscanf(arq_entrada, "%d", &n_obstaculos);
 
+	escolhe_direcao();
+
 	// Aloca grid
-	dist = new int*[n_linhas];
+	dist = new int8_t*[n_linhas];
 	for (int i = 0; i < n_linhas; i++)
-		dist[i] = new int[n_colunas];
+		dist[i] = new int8_t[n_colunas];
 	// Checar se conseguiu alocar
 
 	// Inicializa grid
 	for (int i = 0; i < n_linhas; i++)
 		for (int j = 0; j < n_colunas; j++)
-			dist[i][j] = INT_MAX;
+			dist[i][j] = INFINITO;
 
 	dist[origem.i][origem.j] = 0; // Distância da origem até ela mesma é 0
 
@@ -126,39 +159,41 @@ bool expansao(queue_t& fila)
 			// se célula vizinha existe e ainda não possui valor de distância,
 			// calcula distância e insere vizinho na fila de células a serem tratadas
 
+			int8_t prox_dist = (dist[celula.i][celula.j] + 1) % 3;  // Incremento circular
+
 			vizinho.i = celula.i - 1; // Vizinho norte
 			vizinho.j = celula.j;
 
-			if ((vizinho.i >= 0) && (dist[vizinho.i][vizinho.j] == INT_MAX))
+			if ((vizinho.i >= 0) && (dist[vizinho.i][vizinho.j] == INFINITO))
 			{
-				dist[vizinho.i][vizinho.j] = dist[celula.i][celula.j] + 1;
+				dist[vizinho.i][vizinho.j] = prox_dist;
 				fila.push_back(vizinho);
 			}
 
 			vizinho.i = celula.i + 1; // Vizinho sul
 			vizinho.j = celula.j;
 
-			if ((vizinho.i < n_linhas) && (dist[vizinho.i][vizinho.j] == INT_MAX))
+			if ((vizinho.i < n_linhas) && (dist[vizinho.i][vizinho.j] == INFINITO))
 			{
-				dist[vizinho.i][vizinho.j] = dist[celula.i][celula.j] + 1;
+				dist[vizinho.i][vizinho.j] = prox_dist;
 				fila.push_back(vizinho);
 			}
 
 			vizinho.i = celula.i; // Vizinho oeste
 			vizinho.j = celula.j - 1;
 
-			if ((vizinho.j >= 0) && (dist[vizinho.i][vizinho.j] == INT_MAX))
+			if ((vizinho.j >= 0) && (dist[vizinho.i][vizinho.j] == INFINITO))
 			{
-				dist[vizinho.i][vizinho.j] = dist[celula.i][celula.j] + 1;
+				dist[vizinho.i][vizinho.j] = prox_dist;
 				fila.push_back(vizinho);
 			}
 
 			vizinho.i = celula.i; // Vizinho leste
 			vizinho.j = celula.j + 1;
 
-			if ((vizinho.j < n_colunas) && (dist[vizinho.i][vizinho.j] == INT_MAX))
+			if ((vizinho.j < n_colunas) && (dist[vizinho.i][vizinho.j] == INFINITO))
 			{
-				dist[vizinho.i][vizinho.j] = dist[celula.i][celula.j] + 1;
+				dist[vizinho.i][vizinho.j] = prox_dist;
 				fila.push_back(vizinho);
 			}
 		}
@@ -169,14 +204,21 @@ bool expansao(queue_t& fila)
 
 // ----------------------------------------------------------------------------
 
-void traceback(queue_t& caminho)
+int traceback(queue_t& caminho)
 {
 	t_celula celula, vizinho;
+	int dist_total = 0;
+
+	// Ponteiro para função de queue_t seleciona ordem de inserção no caminho
+	// com base em flag expansao_invertida
+	void (queue_t::*insere)(const t_celula&) = expansao_invertida
+		? static_cast<void (queue_t::*)(const t_celula&)>(&queue_t::push_back)
+		: static_cast<void (queue_t::*)(const t_celula&)>(&queue_t::push_front);
 
 	// Constrói caminho mínimo, com células do destino até a origem
 
 	// Inicia caminho com célula destino
-	caminho.push_front(destino);
+	(caminho.*insere)(destino);
 
 	celula.i = destino.i;
 	celula.j = destino.j;
@@ -184,47 +226,53 @@ void traceback(queue_t& caminho)
 	// Enquanto não chegou na origem
 	while (celula.i != origem.i || celula.j != origem.j)
 	{
+		dist_total++;
+
 		// Determina se célula anterior no caminho é vizinho norte, sul, oeste ou leste
 		// e insere esse vizinho no início do caminho
+
+		int8_t prox_dist = (dist[celula.i][celula.j] + 2) % 3;  // Decremento circular
 
 		vizinho.i = celula.i - 1; // Norte
 		vizinho.j = celula.j;
 
-		if ((vizinho.i >= 0) && (dist[vizinho.i][vizinho.j] == dist[celula.i][celula.j] - 1))
-			caminho.push_front(vizinho);
+		if ((vizinho.i >= 0) && (dist[vizinho.i][vizinho.j] == prox_dist))
+			(caminho.*insere)(vizinho);
 		else
 		{
 			vizinho.i = celula.i + 1; // Sul
 			vizinho.j = celula.j;
 
-			if ((vizinho.i < n_linhas) && (dist[vizinho.i][vizinho.j] == dist[celula.i][celula.j] - 1))
-				caminho.push_front(vizinho);
+			if ((vizinho.i < n_linhas) && (dist[vizinho.i][vizinho.j] == prox_dist))
+				(caminho.*insere)(vizinho);
 			else
 			{
 				vizinho.i = celula.i; // Oeste
 				vizinho.j = celula.j - 1;
 
-				if ((vizinho.j >= 0) && (dist[vizinho.i][vizinho.j] == dist[celula.i][celula.j] - 1))
-					caminho.push_front(vizinho);
+				if ((vizinho.j >= 0) && (dist[vizinho.i][vizinho.j] == prox_dist))
+					(caminho.*insere)(vizinho);
 				else
 				{
 					vizinho.i = celula.i; // Leste
 					vizinho.j = celula.j + 1;
 
-					if ((vizinho.j < n_colunas) && (dist[vizinho.i][vizinho.j] == dist[celula.i][celula.j] - 1))
-						caminho.push_front(vizinho);
+					if ((vizinho.j < n_colunas) && (dist[vizinho.i][vizinho.j] == prox_dist))
+						(caminho.*insere)(vizinho);
 				}
 			}
 		}
 		celula.i = vizinho.i;
 		celula.j = vizinho.j;
 	}
+
+	return dist_total;
 }
 
 // ----------------------------------------------------------------------------
 // Programa principal
 
-int main(int argc, const char **argv)
+int main(int argc, const char *argv[])
 {
 	const char *nome_arq_entrada = argv[1], *nome_arq_saida = argv[2];
 	int distancia_min = -1;	// Distância do caminho mínimo de origem a destino
@@ -236,7 +284,7 @@ int main(int argc, const char **argv)
 		return 1;
 	}
 
-	queue_t fila;	// Fila de células a serem tratadas
+	queue_t fila;		// Fila de células a serem tratadas
 	queue_t caminho;	// Caminho encontrado
 
 	// Lê arquivo de entrada e inicializa estruturas de dados
@@ -252,11 +300,8 @@ int main(int argc, const char **argv)
 
 	if (achou)
 	{
-		// Obtém distância do caminho mínimo da origem até destino
-		distancia_min = dist[destino.i][destino.j];
-
 		// Fase de traceback: obtém caminho mínimo
-		traceback(caminho);
+		distancia_min = traceback(caminho);
 	}
 
 	// Finaliza e escreve arquivo de saída

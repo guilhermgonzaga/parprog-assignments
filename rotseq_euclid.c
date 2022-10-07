@@ -49,6 +49,8 @@ int dist_euclid2(t_celula a, t_celula b)
 	     + (a.j - b.j) * (a.j - b.j);
 }
 
+// Expansão mais excêntrica: troca origem e destino durante processamento
+// se a distãncia do centro do grid ao destino for maior do que à origem.
 void escolhe_direcao()
 {
 	t_celula centro = {n_linhas/2, n_colunas/2};
@@ -63,6 +65,8 @@ void escolhe_direcao()
 		expansao_invertida = true;
 	}
 }
+
+// ----------------------------------------------------------------------------
 
 void inicializa(const char *nome_arq_entrada)
 {
@@ -362,7 +366,6 @@ void traceback()
 int main(int argc, const char **argv)
 {
 	const char *nome_arq_entrada = argv[1], *nome_arq_saida = argv[2];
-	bool achou;
 
 	if(argc != 3)
 	{
@@ -376,7 +379,7 @@ int main(int argc, const char **argv)
 
 	// Fase de expansão: calcula distância da origem até demais células do grid
 	double tini = omp_get_wtime();
-	achou = expansao();
+	bool achou = expansao();
 	double tfim = omp_get_wtime();
 	printf("%s: %g\n", argv[1], tfim - tini);
 

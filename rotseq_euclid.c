@@ -1,7 +1,7 @@
 // ----------------------------------------------------------------------------
 // Roteamento usando algoritmo de Lee
 //
-// Para compilar: gcc -Wall -pedantic -fopenmp -o rotseq rotseq.c
+// Para compilar: gcc -pedantic -O2 -fopenmp -o rotseq rotseq.c
 // Para executar: ./rotseq <nome arquivo entrada> <nome arquivo saída>
 // ----------------------------------------------------------------------------
 

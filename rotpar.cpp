@@ -146,10 +146,13 @@ bool expansao(queue_t& fila)
 	fila.push_back(origem);
 
 	// Enquanto fila não está vazia e não chegou na célula destino
+	#pragma omp parallel
+	#pragma omp single // TODO nowait
 	while (!fila.empty() && !achou)
 	{
 		// Remove primeira célula da fila
 		t_celula celula = fila.front();
+		#pragma omp critical
 		fila.pop_front();
 
 		// Checa se chegou ao destino
@@ -163,40 +166,56 @@ bool expansao(queue_t& fila)
 
 			int8_t prox_dist = (dist[celula.i][celula.j] + 1) % 3;  // Incremento circular
 
-			vizinho.i = celula.i - 1; // Vizinho norte
-			vizinho.j = celula.j;
-
-			if ((vizinho.i >= 0) && (dist[vizinho.i][vizinho.j] == INFINITO))
+			#pragma omp task firstprivate(prox_dist)
 			{
-				dist[vizinho.i][vizinho.j] = prox_dist;
-				fila.push_back(vizinho);
+				vizinho.i = celula.i - 1; // Vizinho norte
+				vizinho.j = celula.j;
+
+				if ((vizinho.i >= 0) && (dist[vizinho.i][vizinho.j] == INFINITO))
+				{
+					dist[vizinho.i][vizinho.j] = prox_dist;
+					#pragma omp critical
+					fila.push_back(vizinho);
+				}
 			}
 
-			vizinho.i = celula.i + 1; // Vizinho sul
-			vizinho.j = celula.j;
-
-			if ((vizinho.i < n_linhas) && (dist[vizinho.i][vizinho.j] == INFINITO))
+			#pragma omp task firstprivate(prox_dist)
 			{
-				dist[vizinho.i][vizinho.j] = prox_dist;
-				fila.push_back(vizinho);
+				vizinho.i = celula.i + 1; // Vizinho sul
+				vizinho.j = celula.j;
+
+				if ((vizinho.i < n_linhas) && (dist[vizinho.i][vizinho.j] == INFINITO))
+				{
+					dist[vizinho.i][vizinho.j] = prox_dist;
+					#pragma omp critical
+					fila.push_back(vizinho);
+				}
 			}
 
-			vizinho.i = celula.i; // Vizinho oeste
-			vizinho.j = celula.j - 1;
-
-			if ((vizinho.j >= 0) && (dist[vizinho.i][vizinho.j] == INFINITO))
+			#pragma omp task firstprivate(prox_dist)
 			{
-				dist[vizinho.i][vizinho.j] = prox_dist;
-				fila.push_back(vizinho);
+				vizinho.i = celula.i; // Vizinho oeste
+				vizinho.j = celula.j - 1;
+
+				if ((vizinho.j >= 0) && (dist[vizinho.i][vizinho.j] == INFINITO))
+				{
+					dist[vizinho.i][vizinho.j] = prox_dist;
+					#pragma omp critical
+					fila.push_back(vizinho);
+				}
 			}
 
-			vizinho.i = celula.i; // Vizinho leste
-			vizinho.j = celula.j + 1;
-
-			if ((vizinho.j < n_colunas) && (dist[vizinho.i][vizinho.j] == INFINITO))
+			#pragma omp task firstprivate(prox_dist)
 			{
-				dist[vizinho.i][vizinho.j] = prox_dist;
-				fila.push_back(vizinho);
+				vizinho.i = celula.i; // Vizinho leste
+				vizinho.j = celula.j + 1;
+
+				if ((vizinho.j < n_colunas) && (dist[vizinho.i][vizinho.j] == INFINITO))
+				{
+					dist[vizinho.i][vizinho.j] = prox_dist;
+					#pragma omp critical
+					fila.push_back(vizinho);
+				}
 			}
 		}
 	}

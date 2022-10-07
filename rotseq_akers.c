@@ -7,10 +7,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <limits.h>
 #include <stdbool.h>
 #include <omp.h>
+
+// Valor arbitrário acima de 2
+#define INFTY 127
 
 // ----------------------------------------------------------------------------
 // Tipos
@@ -74,7 +75,7 @@ void inicializa(const char *nome_arq_entrada)
 	// Inicializa grid
 	for (int i = 0; i < n_linhas; i++)
 		for (int j = 0; j < n_colunas; j++)
-			dist[i][j] = CHAR_MAX;
+			dist[i][j] = INFTY;
 
 	dist[origem.i][origem.j] = 0; // Distância da origem até ela mesma é 0
 
@@ -219,7 +220,7 @@ bool expansao()
 			vizinho.i = celula.i - 1; // Vizinho norte
 			vizinho.j = celula.j;
 
-			if ((vizinho.i >= 0) && (dist[vizinho.i][vizinho.j] == CHAR_MAX))
+			if ((vizinho.i >= 0) && (dist[vizinho.i][vizinho.j] == INFTY))
 			{
 				dist[vizinho.i][vizinho.j] = prox_dist;
 				insere_fila(vizinho);
@@ -228,7 +229,7 @@ bool expansao()
 			vizinho.i = celula.i + 1; // Vizinho sul
 			vizinho.j = celula.j;
 
-			if ((vizinho.i < n_linhas) && (dist[vizinho.i][vizinho.j] == CHAR_MAX))
+			if ((vizinho.i < n_linhas) && (dist[vizinho.i][vizinho.j] == INFTY))
 			{
 				dist[vizinho.i][vizinho.j] = prox_dist;
 				insere_fila(vizinho);
@@ -237,7 +238,7 @@ bool expansao()
 			vizinho.i = celula.i; // Vizinho oeste
 			vizinho.j = celula.j - 1;
 
-			if ((vizinho.j >= 0) && (dist[vizinho.i][vizinho.j] == CHAR_MAX))
+			if ((vizinho.j >= 0) && (dist[vizinho.i][vizinho.j] == INFTY))
 			{
 				dist[vizinho.i][vizinho.j] = prox_dist;
 				insere_fila(vizinho);
@@ -246,7 +247,7 @@ bool expansao()
 			vizinho.i = celula.i; // Vizinho leste
 			vizinho.j = celula.j + 1;
 
-			if ((vizinho.j < n_colunas) && (dist[vizinho.i][vizinho.j] == CHAR_MAX))
+			if ((vizinho.j < n_colunas) && (dist[vizinho.i][vizinho.j] == INFTY))
 			{
 				dist[vizinho.i][vizinho.j] = prox_dist;
 				insere_fila(vizinho);

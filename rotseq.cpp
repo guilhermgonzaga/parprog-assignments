@@ -29,10 +29,10 @@ typedef std::deque<t_celula> queue_t;
 // ----------------------------------------------------------------------------
 // Variáveis globais
 
-bool expansao_invertida = false;	// Flag para ativar expansão mais excêntrica
+bool expansao_oposta = false;	// Flag relevante para expansão mais excêntrica
 
 int n_linhas, n_colunas;	// No. de linhas e colunas do grid
-int8_t **dist;			// Matriz com distância da origem até cada célula do grid
+int8_t **dist;		// Matriz com expansão da origem a células visitadas do grid
 
 t_celula origem, destino;
 
@@ -61,7 +61,7 @@ void escolhe_direcao()
 		t_celula temp = origem;
 		origem = destino;
 		destino = temp;
-		expansao_invertida = true;
+		expansao_oposta = true;
 	}
 }
 
@@ -149,7 +149,7 @@ bool expansao(queue_t& fila)
 	fila.push_back(origem);
 
 	// Enquanto fila não está vazia e não chegou na célula destino
-	while (!fila.empty() && !achou)
+	while (!achou && !fila.empty())
 	{
 		// Remove primeira célula da fila
 		t_celula celula = fila.front();
@@ -160,45 +160,48 @@ bool expansao(queue_t& fila)
 			achou = true;
 		else
 		{
+			// Incremento circular para implementar uma otimização proposta por Akers
+			// em "A modification of Lee's path connection algorithm" (1967).
+			// Distância dos vizinhos não explorados é computada na fase de traceback.
+			int8_t nivel_vizinho = (dist[celula.i][celula.j] + 1) % 3;
+
 			// Para cada um dos 4 possíveis vizinhos da célula (norte, sul, oeste e leste):
 			// se célula vizinha existe e ainda não possui valor de distância,
 			// calcula distância e insere vizinho na fila de células a serem tratadas
 
-			int8_t prox_dist = (dist[celula.i][celula.j] + 1) % 3;  // Incremento circular
-
-			vizinho.i = celula.i - 1; // Vizinho norte
+			// Vizinho norte
+			vizinho.i = celula.i - 1;
 			vizinho.j = celula.j;
-
 			if ((vizinho.i >= 0) && (dist[vizinho.i][vizinho.j] == INFINITO))
 			{
-				dist[vizinho.i][vizinho.j] = prox_dist;
+				dist[vizinho.i][vizinho.j] = nivel_vizinho;
 				fila.push_back(vizinho);
 			}
 
-			vizinho.i = celula.i + 1; // Vizinho sul
+			// Vizinho sul
+			vizinho.i = celula.i + 1;
 			vizinho.j = celula.j;
-
 			if ((vizinho.i < n_linhas) && (dist[vizinho.i][vizinho.j] == INFINITO))
 			{
-				dist[vizinho.i][vizinho.j] = prox_dist;
+				dist[vizinho.i][vizinho.j] = nivel_vizinho;
 				fila.push_back(vizinho);
 			}
 
-			vizinho.i = celula.i; // Vizinho oeste
+			// Vizinho oeste
+			vizinho.i = celula.i;
 			vizinho.j = celula.j - 1;
-
 			if ((vizinho.j >= 0) && (dist[vizinho.i][vizinho.j] == INFINITO))
 			{
-				dist[vizinho.i][vizinho.j] = prox_dist;
+				dist[vizinho.i][vizinho.j] = nivel_vizinho;
 				fila.push_back(vizinho);
 			}
 
-			vizinho.i = celula.i; // Vizinho leste
+			// Vizinho leste
+			vizinho.i = celula.i;
 			vizinho.j = celula.j + 1;
-
 			if ((vizinho.j < n_colunas) && (dist[vizinho.i][vizinho.j] == INFINITO))
 			{
-				dist[vizinho.i][vizinho.j] = prox_dist;
+				dist[vizinho.i][vizinho.j] = nivel_vizinho;
 				fila.push_back(vizinho);
 			}
 		}
@@ -215,8 +218,8 @@ int traceback(queue_t& caminho)
 	int dist_total = 0;
 
 	// Ponteiro para função de queue_t seleciona ordem de inserção no caminho
-	// com base em flag expansao_invertida
-	void (queue_t::*insere)(const t_celula&) = expansao_invertida
+	// com base em flag expansao_oposta
+	void (queue_t::*insere)(const t_celula&) = expansao_oposta
 		? static_cast<void (queue_t::*)(const t_celula&)>(&queue_t::push_back)
 		: static_cast<void (queue_t::*)(const t_celula&)>(&queue_t::push_front);
 
@@ -233,36 +236,36 @@ int traceback(queue_t& caminho)
 	{
 		dist_total++;
 
-		// Determina se célula anterior no caminho é vizinho norte, sul, oeste ou leste
-		// e insere esse vizinho no início do caminho
+		// Determina qual vizinho é célula anterior no caminho com base em níveis
+		// de expansão (decremento circular) e insere-o no início do caminho.
 
-		int8_t prox_dist = (dist[celula.i][celula.j] + 2) % 3;  // Decremento circular
+		int8_t nivel_anterior = (dist[celula.i][celula.j] + 2) % 3;
 
 		vizinho.i = celula.i - 1; // Norte
 		vizinho.j = celula.j;
 
-		if ((vizinho.i >= 0) && (dist[vizinho.i][vizinho.j] == prox_dist))
+		if ((vizinho.i >= 0) && (dist[vizinho.i][vizinho.j] == nivel_anterior))
 			(caminho.*insere)(vizinho);
 		else
 		{
 			vizinho.i = celula.i + 1; // Sul
 			vizinho.j = celula.j;
 
-			if ((vizinho.i < n_linhas) && (dist[vizinho.i][vizinho.j] == prox_dist))
+			if ((vizinho.i < n_linhas) && (dist[vizinho.i][vizinho.j] == nivel_anterior))
 				(caminho.*insere)(vizinho);
 			else
 			{
 				vizinho.i = celula.i; // Oeste
 				vizinho.j = celula.j - 1;
 
-				if ((vizinho.j >= 0) && (dist[vizinho.i][vizinho.j] == prox_dist))
+				if ((vizinho.j >= 0) && (dist[vizinho.i][vizinho.j] == nivel_anterior))
 					(caminho.*insere)(vizinho);
 				else
 				{
 					vizinho.i = celula.i; // Leste
 					vizinho.j = celula.j + 1;
 
-					if ((vizinho.j < n_colunas) && (dist[vizinho.i][vizinho.j] == prox_dist))
+					if ((vizinho.j < n_colunas) && (dist[vizinho.i][vizinho.j] == nivel_anterior))
 						(caminho.*insere)(vizinho);
 				}
 			}
@@ -301,7 +304,7 @@ int main(int argc, const char *argv[])
 	double tini = omp_get_wtime();
 	bool achou = expansao(fila);
 	double tfim = omp_get_wtime();
-	printf("%s: %g\n", argv[1], tfim - tini);
+	printf("%f\n", tfim - tini);
 
 	if (achou)
 	{

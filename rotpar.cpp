@@ -1,6 +1,9 @@
 // ----------------------------------------------------------------------------
 // Roteamento usando algoritmo de Lee
 //
+// Estudante: Guilherme Gonzaga de Andrade
+// Estudante: Walter do Espirito Santo Souza Filho
+//
 // Para compilar: g++ -pedantic -O2 -std=c++11 -fopenmp -o rotpar rotpar.cpp
 // Para executar: ./rotpar <nome arquivo entrada> <nome arquivo saída>
 // ----------------------------------------------------------------------------
@@ -26,10 +29,10 @@ typedef std::deque<t_celula> queue_t;
 // ----------------------------------------------------------------------------
 // Variáveis globais
 
-bool expansao_invertida = false;	// Flag para ativar expansão mais excêntrica
+bool expansao_oposta = false;	// Flag relevante para expansão mais excêntrica
 
 int n_linhas, n_colunas;	// No. de linhas e colunas do grid
-int8_t **dist;			// Matriz com distância da origem até cada célula do grid
+int8_t **dist;		// Matriz com expansão da origem a células visitadas do grid
 
 t_celula origem, destino;
 
@@ -58,7 +61,7 @@ void escolhe_direcao()
 		t_celula temp = origem;
 		origem = destino;
 		destino = temp;
-		expansao_invertida = true;
+		expansao_oposta = true;
 	}
 }
 
@@ -140,83 +143,95 @@ void finaliza(const char *nome_arq_saida, const queue_t& caminho, int distancia_
 bool expansao(queue_t& fila)
 {
 	bool achou = false;
-	t_celula vizinho;
+	bool fila_vazia = false;
+	int nivel_expansao = 0;
+	t_celula celula;
 
 	// Insere célula origem na fila de células a serem tratadas
 	fila.push_back(origem);
 
-	// Enquanto fila não está vazia e não chegou na célula destino
+	// Paralelização por geração de tarefas
 	#pragma omp parallel
-	#pragma omp single // TODO nowait
-	while (!fila.empty() && !achou)
+	#pragma omp single nowait
+	while (!achou && !fila_vazia)
 	{
-		// Remove primeira célula da fila
-		t_celula celula = fila.front();
+		// Obtém primeira célula da fila
 		#pragma omp critical
-		fila.pop_front();
+		{
+			celula = fila.front();
+			fila.pop_front();
+		}
 
 		// Checa se chegou ao destino
 		if (celula.i == destino.i && celula.j == destino.j)
 			achou = true;
 		else
 		{
-			// Para cada um dos 4 possíveis vizinhos da célula (norte, sul, oeste e leste):
-			// se célula vizinha existe e ainda não possui valor de distância,
-			// calcula distância e insere vizinho na fila de células a serem tratadas
-
-			int8_t prox_dist = (dist[celula.i][celula.j] + 1) % 3;  // Incremento circular
-
-			#pragma omp task firstprivate(prox_dist)
+			// Sincronização deve ser feita a cada transição de nível de expansão
+			if (nivel_expansao < dist[celula.i][celula.j])
 			{
-				vizinho.i = celula.i - 1; // Vizinho norte
-				vizinho.j = celula.j;
+				#pragma omp taskwait
+				nivel_expansao = dist[celula.i][celula.j];
+			}
 
+			// Incremento circular para implementar uma otimização proposta por Akers
+			// em "A modification of Lee's path connection algorithm" (1967).
+			// Distância dos vizinhos não explorados é computada na fase de traceback.
+			int8_t nivel_vizinho = (dist[celula.i][celula.j] + 1) % 3;
+
+			// Vizinhos são tratados em uma só tarefa, pois cada nível terá até 4 células
+			// a mais que o anterior. Logo, cada célula terá, em média, 1 vizinho não
+			// explorado. Isso mitiga a criação de tarefas sem trabalho útil.
+
+			#pragma omp critical
+			fila_vazia = fila.empty();
+
+			#pragma omp task firstprivate(celula) if(!fila_vazia)
+			{
+				// Para cada um dos possíveis vizinhos da célula (norte, sul, oeste e leste):
+				// se célula vizinha existe e ainda não possui nível de expansão,
+				// calcula-o e insere-a na fila de células a serem tratadas.
+
+				// Vizinho norte
+				t_celula vizinho = {celula.i-1, celula.j};
 				if ((vizinho.i >= 0) && (dist[vizinho.i][vizinho.j] == INFINITO))
 				{
-					dist[vizinho.i][vizinho.j] = prox_dist;
+					dist[vizinho.i][vizinho.j] = nivel_vizinho;
 					#pragma omp critical
 					fila.push_back(vizinho);
 				}
-			}
 
-			#pragma omp task firstprivate(prox_dist)
-			{
-				vizinho.i = celula.i + 1; // Vizinho sul
-				vizinho.j = celula.j;
-
+				// Vizinho sul
+				vizinho.i += 2;
 				if ((vizinho.i < n_linhas) && (dist[vizinho.i][vizinho.j] == INFINITO))
 				{
-					dist[vizinho.i][vizinho.j] = prox_dist;
+					dist[vizinho.i][vizinho.j] = nivel_vizinho;
 					#pragma omp critical
 					fila.push_back(vizinho);
 				}
-			}
 
-			#pragma omp task firstprivate(prox_dist)
-			{
-				vizinho.i = celula.i; // Vizinho oeste
-				vizinho.j = celula.j - 1;
-
+				// Vizinho oeste
+				vizinho.i -= 1;
+				vizinho.j -= 1;
 				if ((vizinho.j >= 0) && (dist[vizinho.i][vizinho.j] == INFINITO))
 				{
-					dist[vizinho.i][vizinho.j] = prox_dist;
+					dist[vizinho.i][vizinho.j] = nivel_vizinho;
 					#pragma omp critical
 					fila.push_back(vizinho);
 				}
-			}
 
-			#pragma omp task firstprivate(prox_dist)
-			{
-				vizinho.i = celula.i; // Vizinho leste
-				vizinho.j = celula.j + 1;
-
+				// Vizinho leste
+				vizinho.j += 2;
 				if ((vizinho.j < n_colunas) && (dist[vizinho.i][vizinho.j] == INFINITO))
 				{
-					dist[vizinho.i][vizinho.j] = prox_dist;
+					dist[vizinho.i][vizinho.j] = nivel_vizinho;
 					#pragma omp critical
 					fila.push_back(vizinho);
 				}
 			}
+
+			#pragma omp critical
+			fila_vazia = fila.empty();
 		}
 	}
 
@@ -231,8 +246,8 @@ int traceback(queue_t& caminho)
 	int dist_total = 0;
 
 	// Ponteiro para função de queue_t seleciona ordem de inserção no caminho
-	// com base em flag expansao_invertida
-	void (queue_t::*insere)(const t_celula&) = expansao_invertida
+	// com base em flag expansao_oposta
+	void (queue_t::*insere)(const t_celula&) = expansao_oposta
 		? static_cast<void (queue_t::*)(const t_celula&)>(&queue_t::push_back)
 		: static_cast<void (queue_t::*)(const t_celula&)>(&queue_t::push_front);
 
@@ -249,36 +264,36 @@ int traceback(queue_t& caminho)
 	{
 		dist_total++;
 
-		// Determina se célula anterior no caminho é vizinho norte, sul, oeste ou leste
-		// e insere esse vizinho no início do caminho
+		// Determina qual vizinho é célula anterior no caminho com base em níveis
+		// de expansão (decremento circular) e insere-o no início do caminho.
 
-		int8_t prox_dist = (dist[celula.i][celula.j] + 2) % 3;  // Decremento circular
+		int8_t nivel_anterior = (dist[celula.i][celula.j] + 2) % 3;
 
 		vizinho.i = celula.i - 1; // Norte
 		vizinho.j = celula.j;
 
-		if ((vizinho.i >= 0) && (dist[vizinho.i][vizinho.j] == prox_dist))
+		if ((vizinho.i >= 0) && (dist[vizinho.i][vizinho.j] == nivel_anterior))
 			(caminho.*insere)(vizinho);
 		else
 		{
 			vizinho.i = celula.i + 1; // Sul
 			vizinho.j = celula.j;
 
-			if ((vizinho.i < n_linhas) && (dist[vizinho.i][vizinho.j] == prox_dist))
+			if ((vizinho.i < n_linhas) && (dist[vizinho.i][vizinho.j] == nivel_anterior))
 				(caminho.*insere)(vizinho);
 			else
 			{
 				vizinho.i = celula.i; // Oeste
 				vizinho.j = celula.j - 1;
 
-				if ((vizinho.j >= 0) && (dist[vizinho.i][vizinho.j] == prox_dist))
+				if ((vizinho.j >= 0) && (dist[vizinho.i][vizinho.j] == nivel_anterior))
 					(caminho.*insere)(vizinho);
 				else
 				{
 					vizinho.i = celula.i; // Leste
 					vizinho.j = celula.j + 1;
 
-					if ((vizinho.j < n_colunas) && (dist[vizinho.i][vizinho.j] == prox_dist))
+					if ((vizinho.j < n_colunas) && (dist[vizinho.i][vizinho.j] == nivel_anterior))
 						(caminho.*insere)(vizinho);
 				}
 			}
@@ -317,7 +332,7 @@ int main(int argc, const char *argv[])
 	double tini = omp_get_wtime();
 	bool achou = expansao(fila);
 	double tfim = omp_get_wtime();
-	printf("%s: %g\n", argv[1], tfim - tini);
+	printf("%f\n", tfim - tini);
 
 	if (achou)
 	{

@@ -1,6 +1,9 @@
 // ----------------------------------------------------------------------------
 // Roteamento usando algoritmo de Lee
 //
+// Estudante: Guilherme Gonzaga de Andrade
+// Estudante: Walter do Espirito Santo Souza Filho
+//
 // Para compilar: g++ -pedantic -O2 -std=c++11 -fopenmp -o rotseq rotseq.cpp
 // Para executar: ./rotseq <nome arquivo entrada> <nome arquivo saída>
 // ----------------------------------------------------------------------------

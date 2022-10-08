@@ -341,7 +341,7 @@ int main(int argc, const char *argv[])
 	double tini = omp_get_wtime();
 	achou = expansao();
 	double tfim = omp_get_wtime();
-	printf("%s: %g\n", argv[1], tfim - tini);
+	printf("%s: %g\n", nome_arq_entrada, tfim - tini);
 
 	// Se não encontrou caminho de origem até destino
 	if (!achou)

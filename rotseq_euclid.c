@@ -29,7 +29,7 @@ typedef struct no	// Nó da fila de células a serem tratadas e do caminho encon
 // ----------------------------------------------------------------------------
 // Variáveis globais
 
-bool expansao_invertida = false;	// Flag para ativar expansão mais excêntrica
+bool expansao_oposta = false;	// Flag relevante para expansão mais excêntrica
 
 int n_linhas, n_colunas;	// No. de linhas e colunas do grid
 int distancia_min;	// Distância do caminho mínimo de origem a destino
@@ -64,7 +64,7 @@ void escolhe_direcao()
 		t_celula temp = origem;
 		origem = destino;
 		destino = temp;
-		expansao_invertida = true;
+		expansao_oposta = true;
 	}
 }
 
@@ -312,9 +312,9 @@ void traceback()
 	t_celula celula, vizinho;
 
 	// Ponteiro para função de queue_t seleciona ordem de inserção no caminho
-	// com base em flag expansao_invertida
+	// com base em flag expansao_oposta
 	void (*insere_caminho)(t_celula) =
-		expansao_invertida ? insere_fim_caminho : insere_ini_caminho;
+		expansao_oposta ? insere_fim_caminho : insere_ini_caminho;
 
 	// Constrói caminho mínimo, com células do destino até a origem
 
@@ -385,7 +385,7 @@ int main(int argc, const char *argv[])
 	double tini = omp_get_wtime();
 	bool achou = expansao();
 	double tfim = omp_get_wtime();
-	printf("%s: %g\n", argv[1], tfim - tini);
+	printf("%s: %g\n", nome_arq_entrada, tfim - tini);
 
 	// Se não encontrou caminho de origem até destino
 	if (!achou)

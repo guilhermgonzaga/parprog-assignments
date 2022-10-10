@@ -4,7 +4,7 @@
 // Estudante: Guilherme Gonzaga de Andrade
 // Estudante: Walter do Espirito Santo Souza Filho
 //
-// Para compilar: g++ -pedantic -O2 -std=c++11 -fopenmp -o rotpar rotpar.cpp
+// Para compilar: g++ -std=c++11 -pedantic -O2 -fopenmp -o rotpar rotpar.cpp
 // Para executar: ./rotpar <nome arquivo entrada> <nome arquivo saída>
 // ----------------------------------------------------------------------------
 
@@ -245,8 +245,8 @@ int traceback(queue_t& caminho)
 	t_celula celula, vizinho;
 	int dist_total = 0;
 
-	// Ponteiro para função de queue_t seleciona ordem de inserção no caminho
-	// com base em flag expansao_oposta
+	// Ponteiro para função membro de queue_t seleciona ordem de inserção
+	// no caminho com base em flag expansao_oposta.
 	void (queue_t::*insere)(const t_celula&) = expansao_oposta
 		? static_cast<void (queue_t::*)(const t_celula&)>(&queue_t::push_back)
 		: static_cast<void (queue_t::*)(const t_celula&)>(&queue_t::push_front);

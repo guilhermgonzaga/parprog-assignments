@@ -142,8 +142,9 @@ void finaliza(const char *nome_arq_saida, const queue_t& caminho, int distancia_
 
 bool expansao(queue_t& fila)
 {
+	const int tam_fila_max = omp_get_max_threads();
+	int tam_fila = 1;
 	bool achou = false;
-	bool fila_vazia = false;
 	int nivel_expansao = 0;
 	t_celula celula;
 
@@ -153,7 +154,7 @@ bool expansao(queue_t& fila)
 	// Paralelização por geração de tarefas
 	#pragma omp parallel
 	#pragma omp single nowait
-	while (!achou && !fila_vazia)
+	while (!achou && tam_fila > 0)
 	{
 		// Obtém primeira célula da fila
 		#pragma omp critical
@@ -184,9 +185,9 @@ bool expansao(queue_t& fila)
 			// explorado. Isso mitiga a criação de tarefas sem trabalho útil.
 
 			#pragma omp critical
-			fila_vazia = fila.empty();
+			tam_fila = fila.size();
 
-			#pragma omp task firstprivate(celula) if(!fila_vazia)
+			#pragma omp task firstprivate(celula) if(0 < tam_fila && tam_fila < tam_fila_max)
 			{
 				// Para cada um dos possíveis vizinhos da célula (norte, sul, oeste e leste):
 				// se célula vizinha existe e ainda não possui nível de expansão,
@@ -231,7 +232,7 @@ bool expansao(queue_t& fila)
 			}
 
 			#pragma omp critical
-			fila_vazia = fila.empty();
+			tam_fila = fila.size();
 		}
 	}
 

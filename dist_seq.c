@@ -6,181 +6,140 @@
 //
 // Para compilar: gcc dist_seq.c -o dist_seq -Wall
 // Para executar: ./dist_seq <nome arquivo entrada>
+// ----------------------------------------------------------------------------
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
 
-// ----------------------------------------------------------------------------
-char *aloca_sequencia(int n)
-{
-	char *seq;
 
-	seq = (char *) malloc((n + 1) * sizeof(char));
-	if (seq == NULL)
-	{
-		printf("\nErro na alocação de estruturas\n") ;
-		exit(1) ;
+int min(int a, int b, int c) {
+	if (a < b)
+		return (a < c) ? a : c;
+	else
+		return (b < c) ? b : c;
+}
+
+
+char *aloca_sequencia(int n) {
+	char *seq = (char *) malloc((n + 1) * sizeof(char));
+
+	if (seq == NULL) {
+		printf("\nErro na alocação de estruturas\n");
+		exit(EXIT_FAILURE);
 	}
+
 	return seq;
 }
-// ----------------------------------------------------------------------------
-int **aloca_matriz(int n, int m)
-{
-	int **mat,
-		 i;
 
-	mat = (int **) malloc((n + 1) * sizeof(int *));
-	if (mat == NULL)
-	{
-		printf("\nErro na alocação de estruturas\n") ;
-		exit(1) ;
+
+int **aloca_matriz(int n, int m) {
+	int **mat = (int **) malloc((n + 1) * sizeof(int *));
+
+	if (mat == NULL) {
+		printf("\nErro na alocação de estruturas\n");
+		exit(EXIT_FAILURE);
 	}
-	for (i = 0; i <= n; i++)
-	{
+
+	for (int i = 0; i <= n; i++) {
 		mat[i] = (int *) malloc((m + 1) * sizeof(int));
-		if (mat[i] == NULL)
-		{
-			printf("\nErro na alocação de estruturas\n") ;
-			exit(1) ;
+		if (mat[i] == NULL) {
+			printf("\nErro na alocação de estruturas\n");
+			exit(EXIT_FAILURE);
 		}
 	}
 	return mat;
 }
-// ----------------------------------------------------------------------------
-void distancia_edicao(int n, int m, char *s, char *r, int **d)
-{
-	int t, a, b, c, min, i, j;
 
-	for (i = 1; i <= n; i++)
-	{
-		for (j = 1; j <= m; j++)
-		{
-			t = (s[i] != r[j] ? 1 : 0);
-			a = d[i][j-1] + 1;
-			b = d[i-1][j] + 1;
-			c = d[i-1][j-1] + t;
-			// Calcula d[i][j] = min(a, b, c)
-			if (a < b)
-				min = a;
-			else
-				min = b;
-			if (c < min)
-				min = c;
-			d[i][j] = min;
+
+void distancia_edicao(int n, int m, const char *s, const char *r, int **d) {
+	for (int i = 1; i <= n; i++) {
+		for (int j = 1; j <= m; j++) {
+			int a = d[i][j-1] + 1;
+			int b = d[i-1][j] + 1;
+			int c = d[i-1][j-1] + (s[i] != r[j]);
+			d[i][j] = min(a, b, c);
 		}
 	}
 }
-// ----------------------------------------------------------------------------
-void distancia_edicao_adiagonal(int n, int m, char *s, char *r, int **d)
-{
-	int nADiag,			// Número de anti-diagonais
-		 tamMaxADiag,	// Tamanho máximo (número máximo de células) da anti-diagonal
-		 aD,				// Anti-diagonais numeradas de 2 a nADiag + 1
-		 k, i, j,
-		 t, a, b, c, min;
 
-	nADiag = n + m - 1;
-	tamMaxADiag = n;
+
+void distancia_edicao_adiagonal(int n, int m, const char *s, const char *r, int **d) {
+	int nADiag = n + m - 1;  // Número de anti-diagonais
 
 	// Para cada anti-diagonal
-	for (aD = 2; aD <= nADiag + 1; aD++)
-	{
+	for (int aD = 2; aD <= nADiag + 1; aD++) {
 		// Para cada célula da anti-diagonal aD
-		for (k = 0; k < tamMaxADiag; k++)
-		{
+		for (int i = n; i >= 0; i--) {
 			// Calcula índices i e j da célula (linha e coluna)
-			i = n - k;
-			j = aD - i;
+			int j = aD - i;
 
 			// Se é uma célula válida
-			if (j > 0 && j <= m)
-			{
-				t = (s[i] != r[j] ? 1 : 0);
-				a = d[i][j-1] + 1;
-				b = d[i-1][j] + 1;
-				c = d[i-1][j-1] + t;
-				// Calcula d[i][j] = min(a, b, c)
-				if (a < b)
-					min = a;
-				else
-					min = b;
-				if (c < min)
-					min = c;
-				d[i][j] = min;
+			if (1 <= j && j <= m) {
+				int a = d[i][j-1] + 1;
+				int b = d[i-1][j] + 1;
+				int c = d[i-1][j-1] + (s[i] != r[j]);
+				d[i][j] = min(a, b, c);
 			}
 		}
 	}
 }
-// ----------------------------------------------------------------------------
-void libera(int n, char *s, char *r, int **d)
-{
-	int i;
 
+
+void libera(int n, char *s, char *r, int **d) {
 	free(s);
 	free(r);
-	for (i = 0; i <= n; i++)
-	{
+	for (int i = 0; i <= n; i++) {
 		free(d[i]);
 	}
 }
-// ----------------------------------------------------------------------------
-int main(int argc, char **argv)
-{
-	int n,	// Tamanho da sequência s
-		 m,	// Tamanho da sequência r
-		 **d,	// Matriz de distâncias com tamanho (n+1)*(m+1)
-		 i, j;
-	char *s,	// Sequência s de entrada (vetor com tamanho n+1)
-		  *r;	// Sequência r de entrada (vetor com tamanho m+1)
-	FILE *arqEntrada ;	// Arquivo texto de entrada
 
-	if(argc != 2)
-	{
-		printf("O programa foi executado com argumentos incorretos.\n") ;
-		printf("Uso: ./dist_seq <nome arquivo entrada>\n") ;
-		exit(1) ;
+
+int main(int argc, const char **argv) {
+	int n, m;  // Tamanho das sequências s e r
+
+	if (argc != 2) {
+		printf("O programa foi executado com argumentos incorretos.\n");
+		printf("Uso: ./dist_seq <nome arquivo entrada>\n");
+		return EXIT_FAILURE;
 	}
 
 	// Abre arquivo de entrada
-	arqEntrada = fopen(argv[1], "rt") ;
+	FILE *arqEntrada = fopen(argv[1], "rt");
 
-	if (arqEntrada == NULL)
-	{
-		printf("\nArquivo texto de entrada não encontrado\n") ;
-		exit(1) ;
+	if (arqEntrada == NULL) {
+		printf("\nArquivo texto de entrada não encontrado\n");
+		return EXIT_FAILURE;
 	}
 
 	// Lê tamanho das sequências s e r
-	fscanf(arqEntrada, "%d %d", &n, &m) ;
+	fscanf(arqEntrada, "%d %d", &n, &m);
 
 	// Aloca vetores s e r
-	s = aloca_sequencia(n);
-	r = aloca_sequencia(m);
+	char *s = aloca_sequencia(n);  // Sequência s de entrada (com tamanho n+1)
+	char *r = aloca_sequencia(m);  // Sequência r de entrada (com tamanho m+1)
 
 	// Aloca matriz d
-	d = aloca_matriz(n, m);
+	int **d = aloca_matriz(n, m);  // Matriz de distâncias com tamanho (n+1)*(m+1)
 
 	// Lê sequências do arquivo de entrada
 	s[0] = ' ';
 	r[0] = ' ';
-	fscanf(arqEntrada, "%s", &(s[1])) ;
-	fscanf(arqEntrada, "%s", &(r[1])) ;
+	fscanf(arqEntrada, "%s", &s[1]);
+	fscanf(arqEntrada, "%s", &r[1]);
 
 	// Fecha arquivo de entrada
-	fclose(arqEntrada) ;
+	fclose(arqEntrada);
 
 	struct timeval h_ini, h_fim;
 	gettimeofday(&h_ini, 0);
 
 	// Inicializa matriz de distâncias d
-	for (i = 0; i <= n; i++)
-	{
+	for (int i = 0; i <= n; i++) {
 		d[i][0] = i;
 	}
-	for (j = 1; j <= m; j++)
-	{
+	for (int j = 1; j <= m; j++) {
 		d[0][j] = j;
 	}
 
@@ -188,20 +147,19 @@ int main(int argc, char **argv)
 	distancia_edicao(n, m, s, r, d);
 
 	// Calcula distância de edição entre sequências s e r, por anti-diagonais
-	//distancia_edicao_adiagonal(n, m, s, r, d);
+	// distancia_edicao_adiagonal(n, m, s, r, d);
 
 	gettimeofday(&h_fim, 0);
 	// Tempo de execução na CPU em milissegundos
 	long segundos = h_fim.tv_sec - h_ini.tv_sec;
-	long microsegundos = h_fim.tv_usec - h_ini.tv_usec;
-	double tempo = (segundos * 1e3) + (microsegundos * 1e-3);
+	long microssegundos = h_fim.tv_usec - h_ini.tv_usec;
+	double tempo = (segundos * 1e3) + (microssegundos * 1e-3);
 
-	printf("Distância = %d\n", d[n][m]);
-	printf("Tempo CPU = %.2fms\n", tempo);
+	printf("%d\n", d[n][m]);
+	printf("%.2f\n", tempo);
 
 	// Libera vetores s e r e matriz d
 	libera(n, s, r, d);
 
-	return 0;
+	return EXIT_SUCCESS;
 }
-// ----------------------------------------------------------------------------

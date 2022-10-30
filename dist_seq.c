@@ -1,9 +1,6 @@
 // ----------------------------------------------------------------------------
 // Distância de edição sequencial
 //
-// Estudante: Guilherme Gonzaga de Andrade
-// Estudante:
-//
 // Para compilar: gcc dist_seq.c -o dist_seq -Wall
 // Para executar: ./dist_seq <nome arquivo entrada>
 // ----------------------------------------------------------------------------
@@ -66,10 +63,8 @@ void distancia_edicao(int n, int m, const char *s, const char *r, int **d) {
 
 
 void distancia_edicao_adiagonal(int n, int m, const char *s, const char *r, int **d) {
-	int nADiag = n + m - 1;  // Número de anti-diagonais
-
 	// Para cada anti-diagonal
-	for (int aD = 2; aD <= nADiag + 1; aD++) {
+	for (int aD = 2; aD <= n + m; aD++) {
 		// Para cada célula da anti-diagonal aD
 		for (int i = n; i >= 0; i--) {
 			// Calcula índices i e j da célula (linha e coluna)
@@ -96,7 +91,7 @@ void libera(int n, char *s, char *r, int **d) {
 }
 
 
-int main(int argc, const char **argv) {
+int main(int argc, const char *argv[]) {
 	int n, m;  // Tamanho das sequências s e r
 
 	if (argc != 2) {
@@ -153,10 +148,10 @@ int main(int argc, const char **argv) {
 	// Tempo de execução na CPU em milissegundos
 	long segundos = h_fim.tv_sec - h_ini.tv_sec;
 	long microssegundos = h_fim.tv_usec - h_ini.tv_usec;
-	double tempo = (segundos * 1e3) + (microssegundos * 1e-3);
+	double tempo_ms = (segundos * 1e3) + (microssegundos * 1e-3);
 
 	printf("%d\n", d[n][m]);
-	printf("%.2f\n", tempo);
+	printf("%.2f\n", tempo_ms);
 
 	// Libera vetores s e r e matriz d
 	libera(n, s, r, d);

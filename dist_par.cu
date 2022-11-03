@@ -1,8 +1,9 @@
 // ----------------------------------------------------------------------------
-// Distância de edição paralelizado (solução inicial)
+// Distância de edição paralelizado (solução completa)
 //
+// Estudante: Andrews Matheus de Oliveira
 // Estudante: Guilherme Gonzaga de Andrade
-// Estudante:
+// Estudante: Walter do Espirito Santo Souza Filho
 //
 // Para compilar: nvcc dist_par.cu -o dist_par
 // Para executar: ./dist_par <nome arquivo entrada>
@@ -12,8 +13,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>
 
+const int kTamBloco = 1024;
+
+
+int divteto(int a, int b) {
+	return a / b + (a % b != 0);
+}
 
 char *aloca_sequencia_host(int n) {
 	char *seq = (char *) malloc((n + 1) * sizeof(char));
@@ -25,7 +31,6 @@ char *aloca_sequencia_host(int n) {
 
 	return seq;
 }
-
 
 void ler_entrada(const char *nomearq, int *n, int *m, char **h_s, char **h_r) {
 	// Abre arquivo de entrada
@@ -51,7 +56,6 @@ void ler_entrada(const char *nomearq, int *n, int *m, char **h_s, char **h_r) {
 	fclose(arqEntrada);
 }
 
-
 void aloca_dev(int n, int m, char **d_s, char **d_r, int **d_dist) {
 	if (cudaSuccess != cudaMalloc(d_s, (n + 1) * sizeof(char)) ||
 	    cudaSuccess != cudaMalloc(d_r, (m + 1) * sizeof(char)) ||
@@ -61,38 +65,47 @@ void aloca_dev(int n, int m, char **d_s, char **d_r, int **d_dist) {
 	}
 }
 
-
+// Retorna o valor mínimo entre a, b e c
 __device__
 int min(int a, int b, int c) {
-	if (a < b)
-		return (a < c) ? a : c;
-	else
-		return (b < c) ? b : c;
+	return (a < b) ? min(a, c) : min(b, c);
 }
-
 
 __device__
-void inicializa_matriz(int n, int m, int *mat) {
-	mat[(m + 1) * (threadIdx.x + 1)] = threadIdx.x + 1;
+void prepara_matriz(int n, int m, int nBlocosS, int *d_dist) {
+	int idThread = blockDim.x * blockIdx.x + threadIdx.x;
+	// Inicializa linha superior da matriz
+	for (int i = idThread; i <= m; i += blockDim.x * nBlocosS) {
+		d_dist[i] = i;
+	}
 
-	for (int i = threadIdx.x; i <= m; i += blockDim.x)
-		mat[i] = i;
+	// Inicializa coluna esquerda da matriz
+	if (idThread < n) {
+		d_dist[(m + 1) * (idThread + 1)] = idThread + 1;
+	}
 }
 
+// Calcula a distância de edição das antidiagonais
 __global__
-void distancia_edicao_adiagonal(int n, int m, const char *d_s, const char *d_r, int *d_dist) {
-	inicializa_matriz(n, m, d_dist);
+void distancia_edicao_adiag(int antiDiag, int nBlocosS, int nBlocosR, int n, int m, const char *d_s, const char *d_r, int *d_dist) {
+	int iBloco = blockDim.x * blockIdx.x;
+	int jBloco = blockDim.x * (antiDiag - blockIdx.x);
+	int nDiagSub = min(blockDim.x, n - iBloco) + min(blockDim.x, m - jBloco);
 
-	// Para cada anti-diagonal
-	for (int aD = 2; aD <= n + m; aD++) {
+	if (antiDiag == 0) {
+		prepara_matriz(n, m, nBlocosS, d_dist);
+	}
+
+	// Para cada antidiagonal da submatriz
+	for (int antiDiagSub = 2; antiDiagSub <= nDiagSub; antiDiagSub++) {
 		// Calcula índices i e j da célula (linha e coluna)
-		int i = n - threadIdx.x;
-		int j = aD - i;
+		int i = iBloco + threadIdx.x + 1;
+		int j = jBloco + antiDiagSub - threadIdx.x - 1;
 
 		// Se é uma célula válida
-		if (1 <= j && j <= m) {
-			int a = d_dist[(m+1) * i + j-1] + 1;
-			int b = d_dist[(m+1) * (i-1) + j] + 1;
+		if (i <= n && j <= m && 0 <= jBloco && jBloco + 1 <= j && j <= jBloco + 1 + blockDim.x) {
+			int a = d_dist[(m+1) *   i   + j-1] + 1;
+			int b = d_dist[(m+1) * (i-1) +  j ] + 1;
 			int c = d_dist[(m+1) * (i-1) + j-1] + (d_s[i] != d_r[j]);
 			d_dist[(m+1) * i + j] = min(a, b, c);
 		}
@@ -100,12 +113,11 @@ void distancia_edicao_adiagonal(int n, int m, const char *d_s, const char *d_r, 
 	}
 }
 
-
-int main(int argc, const char **argv) {
-	int n, m;  // Tamanho das sequências s e r
-	char *h_s;  // Sequência s de entrada (com tamanho n+1)
-	char *h_r;  // Sequência r de entrada (com tamanho m+1)
-	int *d_dist;  // Matriz de distâncias com tamanho (n+1)*(m+1)
+int main(int argc, const char *argv[]) {
+	int n, m;     // Tamanho das sequências s e r
+	char *h_s;    // Sequência s de entrada (com tamanho n+1)
+	char *h_r;    // Sequência r de entrada (com tamanho m+1)
+	int *d_dist;  // Matriz de distâncias com tamanho (n+1) * (m+1)
 	char *d_s, *d_r;  // Cópias das sequências no device
 
 	if (argc != 2) {
@@ -120,20 +132,23 @@ int main(int argc, const char **argv) {
 	// Aloca estruturas no device
 	aloca_dev(n, m, &d_s, &d_r, &d_dist);
 
-	float tempo = 0;  // Tempo de execução na CPU em milissegundos
+	int nBlocosS = divteto(n, kTamBloco);  // Total de blocos na sequência S
+	int nBlocosR = divteto(m, kTamBloco);  // Total de blocos na sequência R
+
+	float tempo_ms = 0;  // Tempo de execução na CPU em milissegundos
 	cudaEvent_t d_ini, d_fim;
 	cudaEventCreate(&d_ini);
 	cudaEventCreate(&d_fim);
 	cudaEventRecord(d_ini, 0);
 
-	int nBlocos = 1, nThreadsBloco = n;
-
 	cudaMemcpy(d_s, h_s, (n + 1) * sizeof(char), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_r, h_r, (m + 1) * sizeof(char), cudaMemcpyHostToDevice);
 
-	// Calcula distância de edição entre sequências s e r, por anti-diagonais
-	distancia_edicao_adiagonal<<<nBlocos, nThreadsBloco>>>(n, m, d_s, d_r, d_dist);
-	cudaDeviceSynchronize();
+	for (int antiDiag = 0; antiDiag < nBlocosS + nBlocosR - 1; antiDiag++) {
+		// Calcula distância de edição entre sequências s e r, por antidiagonais
+		distancia_edicao_adiag<<<nBlocosS, kTamBloco>>>(antiDiag, nBlocosS, nBlocosR, n, m, d_s, d_r, d_dist);
+		cudaDeviceSynchronize();
+	}
 
 	int dist_total = -1;
 	cudaMemcpy(&dist_total, d_dist + (n+1) * (m+1) - 1, sizeof(int), cudaMemcpyDeviceToHost);
@@ -141,11 +156,11 @@ int main(int argc, const char **argv) {
 
 	cudaEventRecord(d_fim, 0);
 	cudaEventSynchronize(d_fim);
-	cudaEventElapsedTime(&tempo, d_ini, d_fim);
+	cudaEventElapsedTime(&tempo_ms, d_ini, d_fim);
 	cudaEventDestroy(d_ini);
 	cudaEventDestroy(d_fim);
 
-	printf("%.2f\n", tempo);
+	printf("%.2f\n", tempo_ms);
 
 	// Libera vetores s e r e matriz de distâncias
 	free(h_s);

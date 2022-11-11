@@ -1,0 +1,5 @@
+*.o
+*.exe
+a.out
+remove0_seq
+remove0_par

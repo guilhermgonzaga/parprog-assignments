@@ -72,28 +72,29 @@ int min(int a, int b, int c) {
 }
 
 __device__
-void prepara_matriz(int n, int m, int nBlocosS, int *d_dist) {
+void prepara_matriz(int n, int m, int *d_dist) {
 	int idThread = blockDim.x * blockIdx.x + threadIdx.x;
-	// Inicializa linha superior da matriz
-	for (int i = idThread; i <= m; i += blockDim.x * nBlocosS) {
+	// Inicializa primeira linha da matriz
+	for (int i = idThread; i <= m; i += gridDim.x * blockDim.x) {
 		d_dist[i] = i;
 	}
 
-	// Inicializa coluna esquerda da matriz
-	if (idThread < n) {
-		d_dist[(m + 1) * (idThread + 1)] = idThread + 1;
+	// Inicializa primeira coluna da matriz
+	for (int i = idThread; i <= n; i += gridDim.x * blockDim.x) {
+		d_dist[(m + 1) * (i + 1)] = i + 1;
 	}
 }
 
 // Calcula a distância de edição das antidiagonais
 __global__
-void distancia_edicao_adiag(int antiDiag, int nBlocosS, int nBlocosR, int n, int m, const char *d_s, const char *d_r, int *d_dist) {
+void distancia_edicao_adiag(int antiDiag, int n, int m, const char *d_s, const char *d_r, int *d_dist) {
 	int iBloco = blockDim.x * blockIdx.x;
 	int jBloco = blockDim.x * (antiDiag - blockIdx.x);
 	int nDiagSub = min(blockDim.x, n - iBloco) + min(blockDim.x, m - jBloco);
 
 	if (antiDiag == 0) {
-		prepara_matriz(n, m, nBlocosS, d_dist);
+		prepara_matriz(n, m, d_dist);
+		__syncthreads();
 	}
 
 	// Para cada antidiagonal da submatriz
@@ -146,7 +147,7 @@ int main(int argc, const char *argv[]) {
 
 	for (int antiDiag = 0; antiDiag < nBlocosS + nBlocosR - 1; antiDiag++) {
 		// Calcula distância de edição entre sequências s e r, por antidiagonais
-		distancia_edicao_adiag<<<nBlocosS, kTamBloco>>>(antiDiag, nBlocosS, nBlocosR, n, m, d_s, d_r, d_dist);
+		distancia_edicao_adiag<<<nBlocosS, kTamBloco>>>(antiDiag, n, m, d_s, d_r, d_dist);
 		cudaDeviceSynchronize();
 	}
 
@@ -166,7 +167,7 @@ int main(int argc, const char *argv[]) {
 	free(h_s);
 	free(h_r);
 	cudaFree(d_s);
-	cudaFree(d_s);
+	cudaFree(d_r);
 	cudaFree(d_dist);
 
 	return EXIT_SUCCESS;

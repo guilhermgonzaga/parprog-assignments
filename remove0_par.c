@@ -10,7 +10,6 @@
 #include <mpi.h>
 #define RAIZ 0
 
-// XXX https://github.com/rookiehpc/MPI_monitor
 
 void alocaVetores(int n, int **vIn, int **vOut) {
 	*vIn  = (int *) malloc(n * sizeof(int));
@@ -100,6 +99,8 @@ int main(int argc, char *argv[]) {
 		alocaVetores(n/nProc, &vIn, &vOut);
 	}
 
+	MPI_Barrier(MPI_COMM_WORLD);  // Para garantir consistência nos tempos
+
 	// -------------------------------------------------------------------------
 	// Corpo principal do programa
 
@@ -107,23 +108,25 @@ int main(int argc, char *argv[]) {
 	double tIni = MPI_Wtime();
 
 	if (rank == 0) {
-		int mParcial[nProc];  // Tamanhos dos vetores de saída distribuídos
-		int desloc[nProc];    // Deslocamentos dos dados distribuídos para reunir na raiz
+		int mParcial[nProc];  // Tamanhos dos resultados parciais distribuídos
+		int desloc[nProc];  // Deslocamentos dos resultados parciais no vetor de saída
 
 		MPI_Scatter(vIn, n/nProc, MPI_INT, MPI_IN_PLACE, n/nProc, MPI_INT, RAIZ, MPI_COMM_WORLD);
 
 		// Remove zeros do vetor de entrada, produzindo vetor de saída
 		removeZeros(n/nProc, vIn, &m, vOut);
 
+		// Coleta tamanhos dos resultados parciais de cada processo
 		MPI_Gather(&m, 1, MPI_INT, mParcial, 1, MPI_INT, RAIZ, MPI_COMM_WORLD);
 
-		// Soma de prefixos
+		// Soma de prefixos para obter deslocamentos
 		desloc[0] = 0;
 		for (int i = 1; i < nProc; i++) {
 			desloc[i] = desloc[i-1] + mParcial[i-1];
 		}
 
-		MPI_Gatherv(MPI_IN_PLACE, n/nProc, MPI_INT, vOut, mParcial, desloc, MPI_INT, RAIZ, MPI_COMM_WORLD/*, &request*/);
+		// Coleta resultados parciais de cada processo
+		MPI_Gatherv(MPI_IN_PLACE, n/nProc, MPI_INT, vOut, mParcial, desloc, MPI_INT, RAIZ, MPI_COMM_WORLD);
 
 		// Atualiza m com o tamanho total enquanto dados estão em escopo
 		m = desloc[nProc-1] + mParcial[nProc-1];
@@ -134,12 +137,12 @@ int main(int argc, char *argv[]) {
 		// Remove zeros do vetor de entrada, produzindo vetor de saída
 		removeZeros(n/nProc, vIn, &m, vOut);
 
+		// Coleta tamanhos dos resultados parciais de cada processo
 		MPI_Gather(&m, 1, MPI_INT, NULL, 0, MPI_INT, RAIZ, MPI_COMM_WORLD);
 
-		MPI_Gatherv(vOut, m, MPI_INT, NULL, NULL, NULL, MPI_INT, RAIZ, MPI_COMM_WORLD/*, &request*/);
+		// Coleta resultados parciais de cada processo
+		MPI_Gatherv(vOut, m, MPI_INT, NULL, NULL, NULL, MPI_INT, RAIZ, MPI_COMM_WORLD);
 	}
-
-	// MPI_Wait(&request, MPI_STATUS_IGNORE);
 
 	// Mede instante final
 	double tFim = MPI_Wtime();

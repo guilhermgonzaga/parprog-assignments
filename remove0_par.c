@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &nProc);
 
-	if (rank == 0) {
+	if (rank == RAIZ) {
 		if (argc != 3) {
 			printf("O programa foi executado com argumentos incorretos.\n");
 			printf("Uso: ./remove0_seq arquivo_entrada arquivo_saida\n");
@@ -99,15 +99,13 @@ int main(int argc, char *argv[]) {
 		alocaVetores(n/nProc, &vIn, &vOut);
 	}
 
-	MPI_Barrier(MPI_COMM_WORLD);  // Para garantir consistência nos tempos
-
 	// -------------------------------------------------------------------------
 	// Corpo principal do programa
 
-	// Mede instante inicial
-	double tIni = MPI_Wtime();
+	if (rank == RAIZ) {
+		// Mede instante inicial
+		double tIni = MPI_Wtime();
 
-	if (rank == 0) {
 		int mParcial[nProc];  // Tamanhos dos resultados parciais distribuídos
 		int desloc[nProc];  // Deslocamentos dos resultados parciais no vetor de saída
 
@@ -124,12 +122,17 @@ int main(int argc, char *argv[]) {
 		for (int i = 1; i < nProc; i++) {
 			desloc[i] = desloc[i-1] + mParcial[i-1];
 		}
+		// Atualiza m com o tamanho total enquanto dados estão em escopo
+		m = desloc[nProc-1] + mParcial[nProc-1];
 
 		// Coleta resultados parciais de cada processo
 		MPI_Gatherv(MPI_IN_PLACE, n/nProc, MPI_INT, vOut, mParcial, desloc, MPI_INT, RAIZ, MPI_COMM_WORLD);
 
-		// Atualiza m com o tamanho total enquanto dados estão em escopo
-		m = desloc[nProc-1] + mParcial[nProc-1];
+		// Mede instante final
+		double tFim = MPI_Wtime();
+		printf("Tempo=%.2fms\n", 1000.0 * (tFim - tIni));
+
+		saida(m, vOut, argv[2]);  // Escreve resultado em arquivo
 	}
 	else {
 		MPI_Scatter(NULL, n/nProc, MPI_INT, vIn, n/nProc, MPI_INT, RAIZ, MPI_COMM_WORLD);
@@ -144,16 +147,8 @@ int main(int argc, char *argv[]) {
 		MPI_Gatherv(vOut, m, MPI_INT, NULL, NULL, NULL, MPI_INT, RAIZ, MPI_COMM_WORLD);
 	}
 
-	// Mede instante final
-	double tFim = MPI_Wtime();
-	printf("Tempo=%.2fms\n", 1000.0 * (tFim - tIni));  // TODO o que imprimir?
-
 	// -------------------------------------------------------------------------
 	// Finalização
-
-	if (rank == 0) {
-		saida(m, vOut, argv[2]);  // Escreve resultado em arquivo
-	}
 
 	// Libera vetores de entrada e saída
 	free(vIn);

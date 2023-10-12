@@ -1,6 +1,7 @@
 # Generic files
 out.txt
 in.txt
+gmon.out
 a.out
 *.o
 *.exe
@@ -12,3 +13,7 @@ router/rotseq_xc
 router/rotseq_ak
 router/rotseq
 router/rotpar
+
+min-edit-distance/dist_seq
+min-edit-distance/dist_par
+min-edit-distance/dist_par_ini

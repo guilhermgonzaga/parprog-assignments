@@ -1,0 +1,24 @@
+============ Entrada 4 ============
+Original:  0.0269499
+Melhorado: 0.006272    speedup: 4.3
+Paralelo:  0.062477
+============ Entrada 5 ============
+Original:  2.11746
+Melhorado: 0.476161    speedup: 4.4
+Paralelo:  3.891002
+============ Entrada 6 ============
+Original:  6.24662
+Melhorado: 1.229817    speedup: 5.1
+Paralelo:  9.526799
+============ Entrada 7 ============
+Original:  5.07598
+Melhorado: 0.866623    speedup: 5.9
+Paralelo:  6.222537
+============ Entrada 8 ============
+Original:  70.6748
+Melhorado:  9.299492   speedup: 7.6
+Paralelo:  43.382691
+============ Entrada 9 ============
+Original:  218.648
+Melhorado:  60.262027  speedup: 3.6
+Paralelo:  184.762017

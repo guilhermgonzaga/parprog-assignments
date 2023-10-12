@@ -8,6 +8,7 @@ a.out
 *.zip
 
 # Project specific files
+router/profiling/
 router/rotseq_og
 router/rotseq_xc
 router/rotseq_ak

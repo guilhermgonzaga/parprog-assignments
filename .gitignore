@@ -1,12 +1,14 @@
-Descricao.pdf
+# Generic files
 out.txt
 in.txt
-rotseq_og
-rotseq_xc
-rotseq_ak
-rotseq
-rotpar
 a.out
 *.o
 *.exe
 *.zip
+
+# Project specific files
+router/rotseq_og
+router/rotseq_xc
+router/rotseq_ak
+router/rotseq
+router/rotpar

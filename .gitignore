@@ -17,3 +17,6 @@ router/rotpar
 min-edit-distance/dist_seq
 min-edit-distance/dist_par
 min-edit-distance/dist_par_ini
+
+erase-zeros/remove0_seq
+erase-zeros/remove0_par
